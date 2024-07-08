@@ -43,3 +43,22 @@ retriever = vector.as_retriever()
 retrieval_chain = create_retrieval_chain(retriever, document_chain)
 response = retrieval_chain.invoke({"input": "how can langsmith help with testing?"}) # returns a dict
 print(response["answer"])
+
+## Create a conversational retrieval chain
+from langchain.chains import create_history_aware_retriever
+from langchain_core.prompts import MessagesPlaceholder
+prompt = ChatPromptTemplate.from_messages([
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("user","{input}"),
+    ("user","Given the above conversation, generate a search query to look up to get information relevant to the conversation")
+])
+
+retriever_chain = create_history_aware_retriever(llm,retriever,prompt)
+
+## Test the conversational retrieval chain
+from langchain_core.messages import HumanMessage, AIMessage
+chat_history = [HumanMessage(content="Can LangSmith help test my LLM applications?"), AIMessage(content="Yes!")]
+retriever_chain.invoke({
+    "chat_history": chat_history,
+    "input": "Tell me how"
+})
