@@ -90,7 +90,7 @@ prompt = ChatPromptTemplate.from_messages([
 ])
 document_chain = create_stuff_documents_chain(llm, prompt)
 
-retrieval_chain = create_retrieval_chain(retriever_chain, document_chain)
+retrieval_chain = create_retrieval_chain(retriever, document_chain) # can also use the retriever chain here
 
 chat_history = [HumanMessage(content="Can LangSmith help test my LLM applications?"), AIMessage(content="Yes!")]
 response = retrieval_chain.invoke({
