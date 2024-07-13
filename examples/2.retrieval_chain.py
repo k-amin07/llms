@@ -1,5 +1,5 @@
 from langchain_community.llms import Ollama
-llm = Ollama(model="llama2")
+llm = Ollama(model="llama3")
 
 # Providing addtional context
 ## We can provde additional context to the LLM toWe chain the prompt with the llm

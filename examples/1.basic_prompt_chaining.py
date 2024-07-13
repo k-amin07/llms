@@ -1,6 +1,6 @@
 from langchain_community.llms import Ollama
 
-llm = Ollama(model="llama2")
+llm = Ollama(model="llama3")
 
 ## Simple prompt
 resp = llm.invoke("How can langsmith help with testing?")
