@@ -1,27 +1,39 @@
+import os
+
 from langchain_openai import ChatOpenAI
-from langchain.agents import create_tool_calling_agent
+from langchain.agents import create_openai_tools_agent
 from langchain.agents import AgentExecutor
-from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_community.vectorstores import FAISS
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import OllamaEmbeddings
-from langchain_core.tools import create_retriever_tool 
+from langchain.tools.base import StructuredTool
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.tools import ToolException
 
-embeddings = OllamaEmbeddings()
+if(os.getenv('OPENAI_API_KEY') == "ollama"):
+    base_url="http://localhost:11434/v1"
+else:
+    base_url = None
 
-loader = WebBaseLoader("https://docs.smith.langchain.com/user_guide")
-docs = loader.load()
-text_splitter = RecursiveCharacterTextSplitter()
-documents = text_splitter.split_documents(docs)
-vector = FAISS.from_documents(documents, embeddings)
+def _handle_error(error: ToolException) -> str:
+    return (
+        "The following errors occurred during tool execution:"
+        + error.args[0]
+        + "Please try another tool."
+    )
 
-retriever = vector.as_retriever()
-retriever_tool = create_retriever_tool(retriever, name="langchain_docs_retriever", description="Retrieves docs from langchain hub")
-tools = [retriever_tool]
+def multiply(a: int, b: int):
+    return a * b
 
-llm = ChatOpenAI(model="llama3", api_key="ollama", base_url="http://localhost:11434/v1", verbose=True)
+mul = StructuredTool.from_function(
+    func=multiply,
+    name="Multiply",
+    description="useful for when you need to answer questions about multiplication",
+    # coroutine= ... <- we can use this to specify async function as well.
+    handle_tool_error=_handle_error
+)
+
+tools = [mul]
+
+llm = ChatOpenAI(model="llama3", base_url=base_url, verbose=True)
 assistant_system_message = """You are a helpful assistant. \
 Use tools (only if necessary) to best answer the users questions."""
 
@@ -34,7 +46,7 @@ prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-agent = create_tool_calling_agent(llm, tools, prompt)
+agent = create_openai_tools_agent(llm, tools, prompt)
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
 chat_history = []
@@ -44,4 +56,3 @@ while(user_message != "quit"):
     chat_history.append(HumanMessage(user_message))
     chat_history.append(AIMessage(response["output"]))
     user_message = input("Your Message: ")
-
