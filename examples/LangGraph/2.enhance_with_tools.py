@@ -116,15 +116,23 @@ graph = graph_builder.compile()
 
 graph.get_graph().print_ascii()
 
-from langchain_core.messages import BaseMessage
-while(True):
-    user_input = input("User: ")
-    if user_input.lower() in ["quit", "exit", "q"]:
-        print("Goodbye")
-        break
-    print("")
-    for event in graph.stream({"messages": [("user", user_input)]}):
-        for value in event.values():
-            if isinstance(value["messages"][-1], BaseMessage):
-                print("Assistant:", value["messages"][-1].content)
+user_input = "I'm learning LangGraph. Could you do some research on it for me?"
+events = graph.stream(
+    {"messages": [("user", user_input)]}, stream_mode="values"
+)
+for event in events:
+    if "messages" in event:
+        event["messages"][-1].pretty_print()
+
+# from langchain_core.messages import BaseMessage
+# while(True):
+#     user_input = input("User: ")
+#     if user_input.lower() in ["quit", "exit", "q"]:
+#         print("Goodbye")
+#         break
+#     print("")
+#     for event in graph.stream({"messages": [("user", user_input)]}):
+#         for value in event.values():
+#             if isinstance(value["messages"][-1], BaseMessage):
+#                 print("Assistant:", value["messages"][-1].content)
 # Now if a question is outside of the assistant's training data, it will use the tools
