@@ -14,8 +14,10 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 if(os.getenv('OPENAI_API_KEY') == "ollama"):
     base_url="http://localhost:11434/v1"
+    model = "llama3"
 else:
     base_url = None
+    model = "gpt-4o-mini"
 
 embeddings = OllamaEmbeddings()
 
@@ -29,7 +31,7 @@ retriever = vector.as_retriever()
 retriever_tool = create_retriever_tool(retriever, name="langchain_docs_retriever", description="Retrieves docs from langchain hub")
 tools = [retriever_tool]
 
-llm = ChatOpenAI(model="llama3", base_url=base_url, verbose=True)
+llm = ChatOpenAI(model=model, base_url=base_url, verbose=True)
 assistant_system_message = """You are a helpful assistant. \
 Use tools (only if necessary) to best answer the users questions."""
 

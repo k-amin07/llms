@@ -11,8 +11,10 @@ from typing_extensions import TypedDict
 
 if(os.getenv('OPENAI_API_KEY') == "ollama"):
     base_url="http://localhost:11434/v1"
+    model = "llama3"
 else:
     base_url = None
+    model = "gpt-4o-mini"
 
 class State(TypedDict):
     # Here, messages have the type "list" and the add message function ensures 
@@ -28,7 +30,7 @@ graph_builder = StateGraph(State)
 #    because of the add_messages functionn
 
 # Now we will add initialize the LLM and create a chatbot
-llm = ChatOpenAI(model="llama3", base_url=base_url, verbose=True)
+llm = ChatOpenAI(model=model, base_url=base_url, verbose=True)
 
 # Create a basic function for the chatbot node. The function takes in the state and returns an updated messages list.
 # the add messages function in the State class will append the llm response to the messages list.

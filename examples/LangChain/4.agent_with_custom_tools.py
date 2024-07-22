@@ -10,8 +10,10 @@ from langchain_core.tools import ToolException
 
 if(os.getenv('OPENAI_API_KEY') == "ollama"):
     base_url="http://localhost:11434/v1"
+    model = "llama3"
 else:
     base_url = None
+    model = "gpt-4o-mini"
 
 def _handle_error(error: ToolException) -> str:
     return (
@@ -23,6 +25,9 @@ def _handle_error(error: ToolException) -> str:
 def multiply(a: int, b: int):
     return a * b
 
+def divide(a:int, b:int):
+    return a / b
+
 mul = StructuredTool.from_function(
     func=multiply,
     name="Multiply",
@@ -31,9 +36,16 @@ mul = StructuredTool.from_function(
     handle_tool_error=_handle_error
 )
 
-tools = [mul]
+div = StructuredTool.from_function(
+    func=divide,
+    name="Divide",
+    description="useful for when you need to answer questions about division or fractions",
+    handle_tool_error=_handle_error
+)
 
-llm = ChatOpenAI(model="llama3", base_url=base_url, verbose=True)
+tools = [mul, div]
+
+llm = ChatOpenAI(model=model, base_url=base_url, verbose=True)
 assistant_system_message = """You are a helpful assistant. \
 Use tools (only if necessary) to best answer the users questions."""
 

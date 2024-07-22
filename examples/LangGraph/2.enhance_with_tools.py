@@ -13,8 +13,10 @@ from typing_extensions import TypedDict
 
 if(os.getenv('OPENAI_API_KEY') == "ollama"):
     base_url="http://localhost:11434/v1"
+    model = "llama3"
 else:
     base_url = None
+    model = "gpt-4o-mini"
 
 class State(TypedDict):
     messages: Annotated[list,add_messages]
@@ -31,10 +33,11 @@ class BasicToolNode:
         if messages := inputs.get("messages",[]):
             # for an empty list, this would normally raise IndexError, 
             # but this syntax allows us to raise a custom Value error
-            message = messages[:-1]
+            message = messages[-1]
         else:
             raise ValueError("No message found in input")
         
+        print(message)
         outputs = []
         for tool_call in message.tool_calls:
             # get the tool from tools_by_name dict and invoke it with the relevant args
@@ -55,7 +58,7 @@ class BasicToolNode:
 
 graph_builder = StateGraph(State)
 
-llm = ChatOpenAI(model="llama3", base_url=base_url, verbose=True)
+llm = ChatOpenAI(model=model, base_url=base_url, verbose=True)
 
 tavily_tool = TavilySearchResults(max_results=2)
 tools = [tavily_tool]
@@ -111,6 +114,8 @@ graph_builder.add_edge("tools", "chatbot")
 graph_builder.add_edge(START, "chatbot")
 graph = graph_builder.compile()
 
+graph.get_graph().print_ascii()
+
 from langchain_core.messages import BaseMessage
 while(True):
     user_input = input("User: ")
@@ -119,8 +124,7 @@ while(True):
         break
     print("")
     for event in graph.stream({"messages": [("user", user_input)]}):
-        print(event)
-        # for value in event.values():
-        #     if isinstance(value["messages"][-1], BaseMessage):
-        #         print("Assistant:", value["messages"][-1].content)
+        for value in event.values():
+            if isinstance(value["messages"][-1], BaseMessage):
+                print("Assistant:", value["messages"][-1].content)
 # Now if a question is outside of the assistant's training data, it will use the tools
