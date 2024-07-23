@@ -136,5 +136,6 @@ graph.update_state(
 )
 
 snapshot = graph.get_state(config)
+print("\n\nPrint last two messages after updating state as chatbot")
 print(snapshot.values["messages"][-3:])
 print(snapshot.next)
