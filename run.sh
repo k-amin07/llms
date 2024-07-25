@@ -19,8 +19,15 @@ if [ "$1" = "--help" ]; then
     exit 0
 fi
 
+if [ ! -f ./.env ]; then
+    echo "No .env file found. Generating one. Please add the relevant API keys to it"
+    echo "OPENAI_API_KEY=\nTAVILY_API_KEY=\n" >> .env
+    exit 1
+fi
+
 PS3="Please choose a file to run: "
 FILES=$(ls "examples"**/*/*)
+PYTHON=$(which python)
 
 if test -z "$1"
 then
@@ -32,10 +39,10 @@ then
         echo ""
         echo "Running $FILE_PATH"
         echo ""
-        export $(grep -v '^#' .env | xargs -d '\n') && ./langchain/bin/python ./$FILE_PATH
+        export $(grep -v '^#' .env | xargs -d '\n') && $PYTHON ./$FILE_PATH
         echo ""
     done
 else
     FILE_PATH=$1
-    export $(grep -v '^#' .env | xargs -d '\n') && ./langchain/bin/python ./$FILE_PATH
+    export $(grep -v '^#' .env | xargs -d '\n') && $PYTHON ./$FILE_PATH
 fi

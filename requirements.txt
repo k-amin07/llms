@@ -1,0 +1,7 @@
+langchain-core
+langchain_community
+langchain_openai
+langgraph
+faiss-cpu
+vllm
+grandalf
