@@ -1,3 +1,4 @@
+torch
 langchain-core
 langchain_community
 langchain_openai
