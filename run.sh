@@ -31,7 +31,7 @@ PYTHON=$(which python)
 
 if test -z "$1"
 then
-    select FILE_PATH in "${=FILES}" Quit
+    select FILE_PATH in Quit "${=FILES}"
     do
         if [ "$FILE_PATH" = "Quit" ]; then
             break
