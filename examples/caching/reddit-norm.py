@@ -24,7 +24,7 @@ class RedditCache:
         self.cache_rating = []
         self.llm_rating = []
         self.results_path = self.data_path[:-4] + "-results.csv"
-        self.cm_path = self.data_path[:-4] + "cm.csv"
+        self.cm_path = self.data_path[:-4] + "-cm.csv"
     
     def load_data(self):
         with open(self.data_path, 'r') as dataset:
