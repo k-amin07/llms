@@ -1,3 +1,4 @@
 llms/
 .env
 datasets/
+**/__pycache__/
