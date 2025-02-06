@@ -39,10 +39,10 @@ then
         echo ""
         echo "Running $FILE_PATH"
         echo ""
-        export $(grep -v '^#' .env | xargs -d '\n') && $PYTHON ./$FILE_PATH
+        export $(grep -v '^#' .env | gxargs -d '\n') && $PYTHON ./$FILE_PATH
         echo ""
     done
 else
     FILE_PATH=$1
-    export $(grep -v '^#' .env | xargs -d '\n') && $PYTHON ./$FILE_PATH
+    export $(grep -v '^#' .env | gxargs -d '\n') && $PYTHON ./$FILE_PATH
 fi

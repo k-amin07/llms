@@ -25,41 +25,43 @@ from langchain.prompts import ChatPromptTemplate
 #             distance_threshold=0.75
 #         )
 
+
 @tool
 def subreddit_rules_tool(
     name: Annotated[str, "The name of the subreddit to fetch rules for"],
 ):
     """Use this to get rules for the specific subreddit."""
     try:
-        result = requests.get("https://www.reddit.com/r/{}/about/rules.json".format(name))
+        result = requests.get(
+            "https://www.reddit.com/r/{}/about/rules.json".format(name)
+        )
     except BaseException as e:
         return f"Failed to execute. Error: {repr(e)}"
     resp_json = result.json()
     rules = resp_json["rules"]
     rules_str = ""
-    for index,rule in enumerate(rules):
+    for index, rule in enumerate(rules):
         rules_str += "{}. {}\n".format(index + 1, rule["description"])
     return rules_str
 
 
-
-def get_reddiquette_agent(llm, useTools = False):
+def get_reddiquette_agent(llm, useTools=False):
     # Phi3.5 local does not support tool calling. So we will pass the rules here in the system prompt
-    def get_reddiquette(x:None):
+    def get_reddiquette(x: None):
         """Use this tool to get reddit site-wide rules"""
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        with open( os.path.join(current_dir, "reddiquette.txt"),'r') as rediquette_file:
+        with open(os.path.join(current_dir, "reddiquette.txt"), "r") as rediquette_file:
             return rediquette_file.read()
 
     reddiquette_tool = Tool(
         name="Get Rediquette",
         func=get_reddiquette,
-        description="Use this tool to get the reddit site wide rules, also known as reddiquette"
+        description="Use this tool to get the reddit site wide rules, also known as reddiquette",
     )
 
     tools = [reddiquette_tool] if useTools else []
 
-    # giving rediquette as a part of the system prompt throws it off completely. 
+    # giving rediquette as a part of the system prompt throws it off completely.
     reddiquette_prompt = """
         You are a Reddiquette Enforcer. Your task is to ensure comments comply with Reddit's sitewide rules (Reddiquette).
         Here is the comment: "{comment}"
@@ -73,13 +75,9 @@ def get_reddiquette_agent(llm, useTools = False):
         The comment may be a question, please use your judgement to determine whether it belongs on reddit or not.
         """
     reddiquette_agent = create_react_agent(
-        model=llm,
-        tools=tools,
-        state_modifier=reddiquette_prompt
+        model=llm, tools=tools, state_modifier=reddiquette_prompt
     )
     return reddiquette_agent
-
-
 
 
 members = ["reddiquette_enforcer", "subreddit_rule_enforcer"]
@@ -92,29 +90,39 @@ system_prompt = (
     " respond with FINISH."
 )
 
-def supervisor(comment, subreddit):
-    # Check Redis cache
-    cache_result = redis_client.get(comment+subreddit)
-    if cache_result:
-        return {"cache_hit": True, "cached_value": cache_result}
-    return {"cache_hit": False}
 
-
+# def supervisor(comment, subreddit):
+#     # Check Redis cache
+#     cache_result = redis_client.get(comment + subreddit)
+#     if cache_result:
+#         return {"cache_hit": True, "cached_value": cache_result}
+#     return {"cache_hit": False}
 
 
 # large_LM = ChatOpenAI(model="gpt-4o-mini",api_key=os.getenv("OPENAI_API_KEY"))
 
 ## qwen and llama should have tool calling support. Removing phi because it produces gibberish, gemma has low accuracy (0.45), so removing that too
 smallLLMs = {
-    "llama": ChatOpenAI(model="llama3.2:3b",api_key="ollama",base_url="http://localhost:11434/v1"),
-    # "phi": ChatOpenAI(model="phi3.5",api_key="ollama",base_url="http://localhost:11434/v1"),
-    # "gemma": ChatOpenAI(model="gemma:2b",api_key="ollama",base_url="http://localhost:11434/v1"),
-    "qwen": ChatOpenAI(model="qwen2.5:3b",api_key="ollama",base_url="http://localhost:11434/v1"),
+    "llama": ChatOpenAI(
+        model="llama3.2:3b", api_key="ollama", base_url="http://localhost:11434/v1"
+    ),
+    # "phi": ChatOpenAI(
+    #     model="phi3.5", api_key="ollama", base_url="http://localhost:11434/v1"
+    # ),
+    "gemma": ChatOpenAI(
+        model="gemma:2b", api_key="ollama", base_url="http://localhost:11434/v1"
+    ),
+    "qwen": ChatOpenAI(
+        model="qwen2.5:3b", api_key="ollama", base_url="http://localhost:11434/v1"
+    ),
 }
 
-small_llm_keys = ["llama", 
-                #   "gemma", 
-                  "qwen"]
+small_llm_keys = [
+    "llama",
+    "gemma",
+    # "phi",
+    "qwen",
+]
 
 smallLLMAgents = {}
 
@@ -125,30 +133,32 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 
 responses = {}
 
-files = ["misogynistic-slurs","opposing-political-views-trump"]
-lines_to_process = 100
+files = ["misogynistic-slurs", "opposing-political-views-trump"]
+lines_to_process = 1000
+
 
 def get_data_store_structure():
     return {
-        "decision": 0, # 0 for keep, 1 for remove
+        "decision": 0,  # 0 for keep, 1 for remove
         "rule": "",
         "instructions_ignored": False,
         "valid": True,
-        "response": ""
+        "response": "",
     }
+
 
 for file in files:
     responses[file] = {}
-    with open(os.path.join(current_dir,file), 'r') as input_file:
+    with open(os.path.join(current_dir, file), "r") as input_file:
         lines = input_file.readlines()
     for line in lines[:lines_to_process]:
         line = line.strip()
         responses[file][line] = {}
         for llm in small_llm_keys:
-            print("{} processing comment: {}".format(llm,line))
+            print("{} processing comment: {}".format(llm, line))
             inputs = {"messages": [("human", line.strip())]}
             resp = smallLLMAgents[llm].invoke(inputs)
-            content = resp['messages'][-1].content
+            content = resp["messages"][-1].content
             responses[file][line][llm] = get_data_store_structure()
             if "KEEP" in content:
                 responses[file][line][llm]["decision"] = 0
@@ -159,12 +169,22 @@ for file in files:
                 if not content.startswith("REMOVE - Rule:"):
                     responses[file][line][llm]["instructions_ignored"] = True
                 else:
-                    responses[file][line][llm]["rule"] = content.split("REMOVE - Rule:")[1]
+                    responses[file][line][llm]["rule"] = content.split(
+                        "REMOVE - Rule:"
+                    )[1]
             else:
                 responses[file][line][llm]["valid"] = False
                 responses[file][line][llm]["instructions_ignored"] = True
 
-headers = ["file","comment", "llm","decision", "rule", "valid", "instructions_ignored"]
+headers = [
+    "file",
+    "comment",
+    "llm",
+    "decision",
+    "rule",
+    "valid",
+    "instructions_ignored",
+]
 
 decision_count = {}
 accuracy = {}
@@ -172,7 +192,7 @@ for llm in small_llm_keys:
     decision_count[llm] = 0
     accuracy[llm] = 0
 
-with open(os.path.join(current_dir,"output.csv"),'w+') as file:
+with open(os.path.join(current_dir, "output.csv"), "w+") as file:
     writer = csv.writer(file)
     writer.writerow(headers)
 
@@ -182,11 +202,15 @@ with open(os.path.join(current_dir,"output.csv"),'w+') as file:
                 decision = responses[file][comment][llm]["decision"]
                 valid = responses[file][comment][llm]["valid"]
                 rule = responses[file][comment][llm]["rule"]
-                instructions_ignored =responses[file][comment][llm]["instructions_ignored"]
-                writer.writerow([file,comment,llm,decision,rule, valid, instructions_ignored])
+                instructions_ignored = responses[file][comment][llm][
+                    "instructions_ignored"
+                ]
+                writer.writerow(
+                    [file, comment, llm, decision, rule, valid, instructions_ignored]
+                )
                 decision_count[llm] += decision
 
 for llm in small_llm_keys:
-    accuracy[llm] = decision_count[llm]/(lines_to_process * len(files))
+    accuracy[llm] = decision_count[llm] / (lines_to_process * len(files))
 
 print(accuracy)
