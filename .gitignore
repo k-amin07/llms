@@ -2,3 +2,6 @@ llms/
 .env
 datasets/
 **/__pycache__/
+examples/multi-agent-reddit/data
+cache-analysis/Results
+cache-analysis/toxicity_ratings.json

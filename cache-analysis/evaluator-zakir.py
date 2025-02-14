@@ -83,8 +83,8 @@ for key in grouped_data_keys:
     res[key] = []
     rmse_per_llm = {llm: [] for llm in small_llm_keys}
     # we have a 100k rows, divided into 10 bins
-    # picking a 100 total, 10 from each bin
-    data = grouped_data[key][:10]
+    # picking a 1000 total, 100 from each bin
+    data = grouped_data[key][:100]
     correct_predictions = {llm: 0 for llm in small_llm_keys}
     total_predictions = 0
     for object in data:
@@ -106,42 +106,48 @@ for key in grouped_data_keys:
         )
 
         for llm in small_llm_keys:
-            print("{} processing comment: {}".format(llm, comment))
-            prompt = """
- Rate this comment "{}" with an appropriate score number from from the following:
- 0: not toxic
- 1: slightly toxic
- 2: moderately toxic
- 3: very toxic
- 4: highly toxic. 
- Also give a reason for your rating from one of the following
- a. threatening
- b. insulting
- c. profane
- d. attack on a person or group based on their identity
- e. sexual harassment
- f. not toxic
- Return a JSON containing the rating and reason keys""".format(
-                comment
-            )
+            resp_valid = False
+            while resp_valid == False:
+                try:
+                    print("{} processing comment: {}".format(llm, comment))
+                    prompt = """
+        Rate this comment "{}" with an appropriate score number from from the following:
+        0: not toxic
+        1: slightly toxic
+        2: moderately toxic
+        3: very toxic
+        4: highly toxic. 
+        Also give a reason for your rating from one of the following
+        a. threatening
+        b. insulting
+        c. profane
+        d. attack on a person or group based on their identity
+        e. sexual harassment
+        f. not toxic
+        Return a JSON containing the rating and reason keys""".format(
+                        comment
+                    )
 
-            llm_resp = smallLLMs[llm].invoke(comment + prompt).content
-            print(llm_resp.strip())
-            llm_resp = json.loads(llm_resp)
-            llm_score = llm_resp["rating"]
-            llm_reason = llm_resp["reason"]
-            # if llm_resp.content.startswith("f"):
-            #     llm_score = 0
-            # else:
-            #     llm_score = int(llm_resp.content[0])
-            res[key][-1][llm] = llm_score
-            squared_error = (average - (llm_score / 4)) ** 2
-            rmse_per_llm[llm].append(squared_error)
-            res[key][-1]["{}_normalized".format(llm)] = round(llm_score, 2)
-            res[key][-1]["{}_reasoning".format(llm)] = llm_reason
-            llm_is_toxic = 1 if llm_score >= 3 else 0
-            if llm_is_toxic == is_toxic:
-                correct_predictions[llm] += 1
+                    llm_resp = smallLLMs[llm].invoke(comment + prompt).content
+                    print(llm_resp.strip())
+                    llm_resp = json.loads(llm_resp)
+                    llm_score = llm_resp["rating"]
+                    llm_reason = llm_resp["reason"]
+                    # if llm_resp.content.startswith("f"):
+                    #     llm_score = 0
+                    # else:
+                    #     llm_score = int(llm_resp.content[0])
+                    res[key][-1][llm] = llm_score
+                    squared_error = (average - (llm_score / 4)) ** 2
+                    rmse_per_llm[llm].append(squared_error)
+                    res[key][-1]["{}_normalized".format(llm)] = round(llm_score, 2)
+                    res[key][-1]["{}_reasoning".format(llm)] = llm_reason
+                    llm_is_toxic = 1 if llm_score >= 3 else 0
+                    if llm_is_toxic == is_toxic:
+                        correct_predictions[llm] += 1
+                    resp_valid = True
+                except:
+                    pass
     res[key + "_rmse"] = {
         llm: np.sqrt(sum(errors) / len(errors)) if errors else 0
         for llm, errors in rmse_per_llm.items()
