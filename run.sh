@@ -26,7 +26,8 @@ if [ ! -f ./.env ]; then
 fi
 
 PS3="Please choose a file to run: "
-FILES=$(ls "examples"**/*/*)
+# FILES=$(ls "examples"**/*/*)
+FILES=$(ls "cache-analysis"**/*)
 PYTHON=$(which python)
 
 if test -z "$1"
