@@ -4,4 +4,7 @@ datasets/
 **/__pycache__/
 examples/multi-agent-reddit/data
 cache-analysis/Results
-cache-analysis/toxicity_ratings.json
+**/toxicity_ratings*.json
+batched_caching/data/
+batched_caching/results/
+batched_caching/embedding_test.py
