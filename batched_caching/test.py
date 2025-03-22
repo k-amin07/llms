@@ -45,7 +45,7 @@ grouped_data_keys = [
     "0.9",
 ]
 
-distance_thresholds = [0.3]
+distance_thresholds = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
 res = {}
 res_per_bin = {}
 res_actual_matches = {}
@@ -94,7 +94,11 @@ async def process_test_data(test_data):
                     responses = await asyncio.gather(
                         *stored_tasks, return_exceptions=True
                     )
-                    print("Processed {} queries".format(count))
+                    print(
+                        "Processed {} queries for key {} at threshold {}".format(
+                            count, key, thold
+                        )
+                    )
                     stored_tasks = []
                     for index, resp in enumerate(responses):
                         if isinstance(resp, Exception):

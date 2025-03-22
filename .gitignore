@@ -2,9 +2,11 @@ llms/
 .env
 datasets/
 **/__pycache__/
+**/DS_STORE
 examples/multi-agent-reddit/data
 cache-analysis/Results
 **/toxicity_ratings*.json
+**/deduped_with_embeddings.json
 batched_caching/data/
 batched_caching/results/
 batched_caching/embedding_test.py

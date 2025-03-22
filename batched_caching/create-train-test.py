@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 data = []
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
-with open(os.path.join(current_dir, "toxicity_ratings_deduped.json"), "r") as tox_file:
+with open(os.path.join(current_dir, "deduped_with_embeddings.json"), "r") as tox_file:
     lines = tox_file.readlines()
     for line in lines:
         line = line.strip()
