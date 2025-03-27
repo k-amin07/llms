@@ -8,12 +8,7 @@ data = []
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 with open(os.path.join(current_dir, "deduped_with_embeddings.json"), "r") as tox_file:
-    lines = tox_file.readlines()
-    for line in lines:
-        line = line.strip()
-        data_json = json.loads(line)
-        data_json["perspective_score"] = float(data_json["perspective_score"])
-        data.append(data_json)
+    data = json.load(tox_file)
 
 data.sort(key=lambda x: x["perspective_score"])
 perspective_scores = np.array([item["perspective_score"] for item in data])
@@ -51,10 +46,12 @@ for run in range(1, 6):
         total_test_data[key] = test_data
 
     with open(
-        os.path.join(current_dir, "data/run_{}_train".format(run)), "w+"
+        os.path.join(current_dir, "data/run_{}_train.json".format(run)), "w+"
     ) as train_file:
-        train_file.write(json.dumps(total_train_data))
+        json.dump(total_train_data, train_file, indent=4)
+        # train_file.write(json.dumps(total_train_data))
     with open(
-        os.path.join(current_dir, "data/run_{}_test".format(run)), "w+"
-    ) as train_file:
-        train_file.write(json.dumps(total_test_data))
+        os.path.join(current_dir, "data/run_{}_test.json".format(run)), "w+"
+    ) as test_file:
+        json.dump(total_test_data, test_file, indent=4)
+        # test_file.write(json.dumps(total_test_data))
