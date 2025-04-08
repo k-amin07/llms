@@ -2,12 +2,21 @@ import argparse
 import json
 import os
 from redisvl.extensions.llmcache import SemanticCache
+from datetime import date
 import pandas as pd
+import random
 
 import asyncio
 
 parser = argparse.ArgumentParser(description="Process toxicity dataset cache results.")
 parser.add_argument("-f", "--file_name", type=str, help="Path to the input JSON file")
+parser.add_argument(
+    "-p",
+    "--percentage",
+    type=int,
+    help="(Integer) Percentage of train data to store in cache",
+    default=100,
+)
 args = parser.parse_args()
 
 
@@ -19,7 +28,7 @@ llm_cache = SemanticCache(
     redis_url=redis_url,
 )
 
-llm_cache.clear()
+llm_cache.index.delete(drop=True)
 
 batch_size = 100
 
@@ -32,6 +41,10 @@ async def process_and_store(train_data):
     count = 1
     index = 0
     total_train_size = len(train_data)
+    chosen_train_size = int((total_train_size * args.percentage) // 100)
+    train_data = random.sample(train_data, k=chosen_train_size)
+    print("Total train data: ", total_train_size)
+    print("Populated train data", len(train_data))
     for object in train_data:
         comment = object["comment"]
         vector = object["vector"]
@@ -56,26 +69,44 @@ async def process_and_store(train_data):
         count += 1
     await asyncio.gather(*stored_tasks)
     df = pd.DataFrame(query_hashes)
-    df.to_csv("run-{}-query_hashes.csv".format(args.file_name), index=False)
+    folder = "./results/{}/".format(str(date.today()))
+
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+    df.to_csv(
+        "{}/run-{}-query_hashes.csv".format(folder, args.file_name),
+        index=False,
+    )
 
 
 def process_and_store_sync(train_data):
     i = 0
+    total_train_size = len(train_data)
+    chosen_train_size = int((total_train_size * args.percentage) // 100)
+    train_data = random.sample(train_data, k=chosen_train_size)
+    print("Total train data: ", total_train_size)
+    print("Populated train data", len(train_data))
     for object in train_data:
         comment = object["comment"]
         vector = object["vector"]
         is_toxic = object["is_toxic"]
-        llm_cache.store(
+        query_hash = llm_cache.store(
             prompt=comment,
             vector=vector,
             response=is_toxic,
         )
-        query_hashes.append({"query": comment, "hash": ""})
+        query_hashes.append({"query": comment, "hash": query_hash})
         if i % 100 == 0:
             print("Processed {} queries".format(i))
         i += 1
     df = pd.DataFrame(query_hashes)
-    df.to_csv("run-{}-query_hashes.csv".format(args.file_name), index=False)
+    folder = "./results/{}/".format(str(date.today()))
+
+    os.makedirs(folder, exist_ok=True)
+    df.to_csv(
+        "{}/run-{}-query_hashes.csv".format(folder, args.file_name),
+        index=False,
+    )
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
