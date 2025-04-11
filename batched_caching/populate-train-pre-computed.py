@@ -100,11 +100,11 @@ def process_and_store_sync(train_data):
             print("Processed {} queries".format(i))
         i += 1
     df = pd.DataFrame(query_hashes)
-    folder = "./results/{}/".format(str(date.today()))
+    folder = f"./results/{str(date.today())}/run-{args.file_name}/"
 
     os.makedirs(folder, exist_ok=True)
     df.to_csv(
-        "{}/run-{}-query_hashes.csv".format(folder, args.file_name),
+        "{}query_hashes.csv".format(folder, args.file_name),
         index=False,
     )
 
