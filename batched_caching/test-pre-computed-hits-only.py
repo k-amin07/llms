@@ -2,7 +2,6 @@ import argparse
 import json
 import os
 from redisvl.extensions.llmcache import SemanticCache
-from collections import defaultdict
 from sklearn.metrics import roc_auc_score, precision_recall_curve, auc, roc_curve
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -22,7 +21,7 @@ llm_cache = SemanticCache(
     redis_url=redis_url,
 )
 
-grouped_data_keys = [
+perspective_api_bins = [
     "0.0",
     "0.1",
     "0.2",
@@ -35,7 +34,8 @@ grouped_data_keys = [
     "0.9",
 ]
 
-distance_thresholds = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
+# distance_thresholds = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
+distance_thresholds = [0.4]
 res_per_bin = {}
 res_actual_matches = {}
 
@@ -44,24 +44,58 @@ for thold in distance_thresholds:
     res_per_bin[sim] = {}
     res_actual_matches[sim] = []
 
-for key in grouped_data_keys:
+for bin in perspective_api_bins:
     for thold in distance_thresholds:
         sim = 1 - thold
-        res_per_bin[sim][key] = {"hits": 0, "total_queries": 0, "correct": 0}
+        res_per_bin[sim][bin] = {"hits": 0, "total_queries": 0, "correct": 0}
+
+
+def get_metrics_by_llm_dict():
+    metrics_keys = [
+        "TP",
+        "TN",
+        "FP",
+        "FN",
+        "label_matches",
+        "label_mismatches",
+        "total_queries",
+    ]
+    llm_names = ["llama", "gemma", "4o"]
+    metrics_by_llm = {}
+    for llm_name in llm_names:
+        metrics_by_llm[llm_name] = {}
+        for bin in perspective_api_bins:
+            metrics_by_llm[llm_name][bin] = {}
+            for metrics_key in metrics_keys:
+                metrics_by_llm[llm_name][bin][metrics_key] = 0
+            metrics_by_llm[llm_name][bin]["metric_progression"] = []
+            metrics_by_llm[llm_name][bin]["by_threshold"] = {}
+            for thold in distance_thresholds:
+                metrics_by_llm[llm_name][bin]["by_threshold"][thold] = {}
+                for metrics_key in metrics_keys:
+                    metrics_by_llm[llm_name][bin]["by_threshold"][thold][
+                        metrics_key
+                    ] = 0
+                metrics_by_llm[llm_name][bin]["by_threshold"][thold][
+                    "metric_progression"
+                ] = []
+    return metrics_by_llm
 
 
 def process_test_data(test_data):
     metrics_by_threshold = {}
     roc_data_per_threshold = {}
+    metrics_by_llm = get_metrics_by_llm_dict()
+
     for thold in distance_thresholds:
         sim = 1 - thold
         llm_cache.set_threshold(thold)
         roc_data_per_threshold[thold] = {"y_true": [], "y_score": []}
         metrics_by_threshold[thold] = {}
-        for key in grouped_data_keys:
-            res_per_bin[sim][key]["total_queries"] += 1
-            metrics_by_threshold[thold][key] = {}
-            metrics_by_key = {
+        for bin in perspective_api_bins[:1]:
+            res_per_bin[sim][bin]["total_queries"] += 1
+            metrics_by_threshold[thold][bin] = {}
+            metrics_by_bin = {
                 "TP": 0,
                 "FP": 0,
                 "TN": 0,
@@ -74,32 +108,81 @@ def process_test_data(test_data):
             }
             hit_count = 0
             count = 0
-            for object in test_data[key]:
+            for object in test_data[bin][:3]:
                 comment = object["comment"]
                 vector = object["vector"]
                 is_toxic = object["is_toxic"]
-                metrics_by_key["total_queries"] += 1
+                llm_ratings = object["llm_ratings"]
+                metrics_by_bin["total_queries"] += 1
                 roc_y_true = []
                 roc_y_score = []
+                roc_llms = {}
+                roc_llms_cache = {}
+                for llm in llm_ratings:
+                    roc_llms[llm] = {"y_true": [], "y_score": []}
+                    roc_llms_cache[llm] = {"y_true": [], "y_score": []}
                 count += 1
-                if count % 100 == 0 or count == len(test_data[key]):
+                del llm_ratings["qwen"]
+                for llm in llm_ratings:
+                    llm_is_toxic = llm_ratings[llm]["is_toxic"]
+                    llm_prob = llm_ratings[llm]["rating"]
+                    if is_toxic == 1 and llm_is_toxic == 1:
+                        metrics_by_llm[llm][bin]["TP"] += 1
+                        metrics_by_llm[llm][bin]["label_matches"] += 1
+                    elif is_toxic == 0 and llm_is_toxic == 1:
+                        metrics_by_llm[llm][bin]["FP"] += 1
+                        metrics_by_llm[llm][bin]["label_mismatches"] += 1
+                    elif is_toxic == 1 and llm_is_toxic == 0:
+                        metrics_by_llm[llm][bin]["FN"] += 1
+                        metrics_by_llm[llm][bin]["label_mismatches"] += 1
+                    elif is_toxic == 0 and llm_is_toxic == 0:
+                        metrics_by_llm[llm][bin]["TN"] += 1
+                        metrics_by_llm[llm][bin]["label_matches"] += 1
+                    roc_llms[llm]["y_true"].append(is_toxic)
+                    roc_llms[llm]["y_score"].append(llm_prob)
+
+                if count % 100 == 0 or count == len(test_data[bin]):
                     print(
-                        "Processed {} queries for key {} at threshold {}".format(
-                            count, key, thold
+                        "Processed {} queries for bin {} at threshold {}".format(
+                            count, bin, thold
                         )
                     )
                 if resp := llm_cache.check(vector=vector, distance_threshold=thold):
-                    res_per_bin[sim][key]["hits"] += 1
+                    res_per_bin[sim][bin]["hits"] += 1
                     cache_label = int(resp[0]["response"])
-                    metrics_by_key["total_hits"] += 1
+                    metrics_by_bin["total_hits"] += 1
                     if is_toxic == 1 and cache_label == 1:
-                        metrics_by_key["TP"] += 1
+                        metrics_by_bin["TP"] += 1
                     elif is_toxic == 0 and cache_label == 1:
-                        metrics_by_key["FP"] += 1
+                        metrics_by_bin["FP"] += 1
                     elif is_toxic == 1 and cache_label == 0:
-                        metrics_by_key["FN"] += 1
+                        metrics_by_bin["FN"] += 1
                     elif is_toxic == 0 and cache_label == 0:
-                        metrics_by_key["TN"] += 1
+                        metrics_by_bin["TN"] += 1
+
+                    for llm in llm_ratings:
+                        llm_is_toxic = llm_ratings[llm]["is_toxic"]
+                        llm_prob = llm_ratings[llm]["rating"]
+                        if cache_label == 1 and llm_is_toxic == 1:
+                            metrics_by_llm[llm][bin]["by_threshold"][thold]["TP"] += 1
+                            metrics_by_llm[llm][bin]["by_threshold"][thold][
+                                "label_matches"
+                            ] += 1
+                        elif cache_label == 0 and llm_is_toxic == 1:
+                            metrics_by_llm[llm][bin]["by_threshold"][thold]["FP"] += 1
+                            metrics_by_llm[llm][bin]["by_threshold"][thold][
+                                "label_mismatches"
+                            ] += 1
+                        elif cache_label == 1 and llm_is_toxic == 0:
+                            metrics_by_llm[llm][bin]["by_threshold"][thold]["FN"] += 1
+                            metrics_by_llm[llm][bin]["by_threshold"][thold][
+                                "label_mismatches"
+                            ] += 1
+                        elif cache_label == 0 and llm_is_toxic == 0:
+                            metrics_by_llm[llm][bin]["by_threshold"][thold]["TN"] += 1
+                            metrics_by_llm[llm][bin]["by_threshold"][thold][
+                                "label_matches"
+                            ] += 1
 
                     matched_comment = resp[0]["prompt"]
                     vector_distance = resp[0]["vector_distance"]
@@ -118,18 +201,18 @@ def process_test_data(test_data):
                                 "cosine_similarity": cosine_similarity,
                             }
                         )
-                        metrics_by_key["label_mismatch_hits"] += 1
+                        metrics_by_bin["label_mismatch_hits"] += 1
                     else:
-                        metrics_by_key["label_match_hits"] += 1
-                        res_per_bin[sim][key]["correct"] += 1
+                        metrics_by_bin["label_match_hits"] += 1
+                        res_per_bin[sim][bin]["correct"] += 1
 
                     hit_count += 1
-                    if hit_count % 100 == 0 or hit_count == len(test_data[key]):
+                    if hit_count % 100 == 0 or hit_count == len(test_data[bin]):
                         tp, fp, fn, tn = (
-                            metrics_by_key["TP"],
-                            metrics_by_key["FP"],
-                            metrics_by_key["FN"],
-                            metrics_by_key["TN"],
+                            metrics_by_bin["TP"],
+                            metrics_by_bin["FP"],
+                            metrics_by_bin["FN"],
+                            metrics_by_bin["TN"],
                         )
                         total = tp + fp + fn + tn
                         precision = tp / (tp + fp) if (tp + fp) else 0
@@ -141,13 +224,13 @@ def process_test_data(test_data):
                         )
                         accuracy = (tp + tn) / total if total else 0
                         coverage = (
-                            metrics_by_key["total_hits"]
-                            / metrics_by_key["total_queries"]
+                            metrics_by_bin["total_hits"]
+                            / metrics_by_bin["total_queries"]
                         )
                         abstention_rate = 1 - coverage
                         match_rate = (
-                            metrics_by_key["label_match_hits"]
-                            / metrics_by_key["total_hits"]
+                            metrics_by_bin["label_match_hits"]
+                            / metrics_by_bin["total_hits"]
                         )
                         try:
                             auc_score_progress = (
@@ -157,9 +240,9 @@ def process_test_data(test_data):
                             )
                         except ValueError:
                             auc_score_progress = 0
-                        metrics_by_key["metric_progression"].append(
+                        metrics_by_bin["metric_progression"].append(
                             {
-                                "hits": metrics_by_key["total_hits"],
+                                "hits": metrics_by_bin["total_hits"],
                                 "accuracy": accuracy,
                                 "precision": precision,
                                 "recall": recall,
@@ -171,35 +254,35 @@ def process_test_data(test_data):
                             }
                         )
 
-            metrics_by_threshold[thold][key] = metrics_by_key
+            metrics_by_threshold[thold][bin] = metrics_by_bin
 
     aggregate_metrics = {}
     for thold in metrics_by_threshold:
         TP = sum(
-            metrics_by_threshold[thold][key]["TP"]
-            for key in metrics_by_threshold[thold]
+            metrics_by_threshold[thold][bin]["TP"]
+            for bin in metrics_by_threshold[thold]
         )
         FP = sum(
-            metrics_by_threshold[thold][key]["FP"]
-            for key in metrics_by_threshold[thold]
+            metrics_by_threshold[thold][bin]["FP"]
+            for bin in metrics_by_threshold[thold]
         )
         TN = sum(
-            metrics_by_threshold[thold][key]["TN"]
-            for key in metrics_by_threshold[thold]
+            metrics_by_threshold[thold][bin]["TN"]
+            for bin in metrics_by_threshold[thold]
         )
         FN = sum(
-            metrics_by_threshold[thold][key]["FN"]
-            for key in metrics_by_threshold[thold]
+            metrics_by_threshold[thold][bin]["FN"]
+            for bin in metrics_by_threshold[thold]
         )
 
         total = TP + FP + TN + FN
         hits = sum(
-            metrics_by_threshold[thold][key]["total_hits"]
-            for key in metrics_by_threshold[thold]
+            metrics_by_threshold[thold][bin]["total_hits"]
+            for bin in metrics_by_threshold[thold]
         )
         total_queries = sum(
-            metrics_by_threshold[thold][key]["total_queries"]
-            for key in metrics_by_threshold[thold]
+            metrics_by_threshold[thold][bin]["total_queries"]
+            for bin in metrics_by_threshold[thold]
         )
         coverage = hits / total_queries if total_queries else 0
         abstention_rate = 1 - coverage
