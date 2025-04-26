@@ -7,7 +7,9 @@ from sklearn.model_selection import train_test_split
 
 # Load data
 current_dir = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(current_dir, "deduped_with_embeddings.json"), "r") as tox_file:
+with open(
+    os.path.join(current_dir, "toxicity_ratings_embeddings.json"), "r"
+) as tox_file:
     data = json.load(tox_file)
 
 # Bin the data
@@ -82,12 +84,12 @@ for run in range(1, 6):
         total_train_data.extend(train_data)
         total_test_data[bin_key] = test_data
 
-    print("Sa", sampled_lengths)
-    print("Tr", train_lengths)
-    print("Te", test_lengths)
-    print("NSa", sum(sampled_lengths))
-    print("NTr", sum(train_lengths))
-    print("NTe", sum(test_lengths))
+    print("Sampled lengths", sampled_lengths)
+    print("Train lengths", train_lengths)
+    print("Test lengths", test_lengths)
+    print("Total Sampled", sum(sampled_lengths))
+    print("Total Train", sum(train_lengths))
+    print("Total Test", sum(test_lengths))
     # Save files
     with open(
         os.path.join(current_dir, f"data/run_{run}_train.json"), "w"
