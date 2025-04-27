@@ -3,6 +3,7 @@ llms/
 datasets/
 **/__pycache__/
 **/.DS_STORE
+**/.DS_Store
 examples/multi-agent-reddit/data
 cache-analysis/Results
 **/toxicity_ratings*.json
@@ -10,3 +11,4 @@ cache-analysis/Results
 batched_caching/data*/
 batched_caching/results/
 batched_caching/embedding_test.py
+pipeline/batches/
