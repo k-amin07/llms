@@ -79,20 +79,20 @@ async def main():
             model_kwargs={"response_format": {"type": "json_object"}},
             temperature=0,
         ),
-        # "gemma": ChatOpenAI(
-        #     model="google/gemma-3-12b-it",
-        #     api_key=OPENROUTER_API_KEY,
-        #     base_url="https://openrouter.ai/api/v1",
-        #     model_kwargs={"response_format": {"type": "json_object"}},
-        #     temperature=0,
-        # ),
-        # "qwen": ChatOpenAI(
-        #     model="qwen/qwen-2.5-7b-instruct",
-        #     api_key=OPENROUTER_API_KEY,
-        #     base_url="https://openrouter.ai/api/v1",
-        #     model_kwargs={"response_format": {"type": "json_object"}},
-        #     temperature=0,
-        # ),
+        "gemma": ChatOpenAI(
+            model="google/gemma-3-12b-it",
+            api_key=OPENROUTER_API_KEY,
+            base_url="https://openrouter.ai/api/v1",
+            model_kwargs={"response_format": {"type": "json_object"}},
+            temperature=0,
+        ),
+        "qwen": ChatOpenAI(
+            model="qwen/qwen-2.5-7b-instruct",
+            api_key=OPENROUTER_API_KEY,
+            base_url="https://openrouter.ai/api/v1",
+            model_kwargs={"response_format": {"type": "json_object"}},
+            temperature=0,
+        ),
     }
 
     BATCH_SIZE = 100

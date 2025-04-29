@@ -6,7 +6,7 @@ datasets/
 **/.DS_Store
 examples/multi-agent-reddit/data
 cache-analysis/Results
-**/toxicity_ratings*.json
+**/toxicity_ratings*.json*
 **/deduped_with_embeddings.json
 batched_caching/data*/
 batched_caching/results/

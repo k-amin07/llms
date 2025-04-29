@@ -41,7 +41,9 @@ for obj, embedding in zip(data, embeddings):
     out = {
         "comment": comment,
         "vector": obj["vector"],
-        "human_rating": median_likert_score,
+        "human_rating": int(
+            median_likert_score
+        ),  # Each comment has 5 ratings so median likert score will always be an integer
         "is_toxic": is_toxic,
     }
     output_data.append(out)
