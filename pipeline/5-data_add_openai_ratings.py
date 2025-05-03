@@ -81,7 +81,7 @@ def main():
     toxicity_output_file = os.path.join(
         current_dir, "toxicity_ratings_embeddings_openai.json"
     )
-    with open("toxicity_ratings_embeddings_openai.json", "w") as f:
+    with open(toxicity_output_file, "w") as f:
         json.dump(data, f, indent=2)
 
     print("Successfully updated toxicity_ratings_embeddings_openai.json!")
